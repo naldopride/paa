@@ -11,12 +11,12 @@ max_width = 400
 road_width = 20
 space = 20
 zoom_factor = 1.0
-INITIAL_WIDTH = 800
+INITIAL_WIDTH = 1200
 INITIAL_HEIGHT = 600
 viewport_x = INITIAL_WIDTH // 2 - 50
 viewport_y = INITIAL_HEIGHT // 2 - 50
-viewport_width = 800
-viewport_height = 600
+viewport_width = 900
+viewport_height = 650
 
 # Canvas setup
 canvas = Image.new("RGBA", (width, height), "green")
@@ -32,7 +32,7 @@ building = [
     Image.open("bangunan/medium.png").convert("RGBA").resize((100, 50)),
     Image.open("bangunan/medium2.png").convert("RGBA").resize((50, 30)),
     Image.open("bangunan/medium3.png").convert("RGBA").resize((50, 30)),
-    Image.open("bangunan/medium4.jpg").convert("RGBA").resize((50, 30)),
+    Image.open("bangunan/medium4.jpeg").convert("RGBA").resize((50, 30)),
     Image.open("bangunan/small.png").convert("RGBA").resize((50, 30))
 
 ]
@@ -55,8 +55,16 @@ car_images = [
 ]
 
 # Car setup
-cars = [{"image": random.choice(car_images), "position": (random.randint(0, width), random.randint(0, height)), "velocity": (random.choice([-1, 1]) * 5, 0)} for _ in range(5)]
+car_count = 50  # Number of cars to generate
 
+# Duplicate existing car images to add more cars
+additional_car_images = [random.choice(car_images).copy() for _ in range(car_count - len(car_images))]
+
+# Extend car images list with additional car images
+car_images.extend(additional_car_images)
+
+# Car setup
+cars = [{"image": random.choice(car_images), "position": (random.randint(0, width), random.randint(0, height)), "velocity": (random.choice([-1, 1]) * 5, 0)} for _ in range(car_count)]
 # Function to draw area and roads
 def drawArea(pos1, pos2, batAs, sisa):
     global building, environment
@@ -83,7 +91,7 @@ def drawArea(pos1, pos2, batAs, sisa):
     x = xsort[0] + 20
     y = ysort[0] + 20
     if pos1[0] < pos2[0] and pos1[1] < pos2[1]:
-        draw.rectangle((pos1, pos2), "white")
+        draw.rectangle((pos1, pos2), "green")
     while y <= ysort[1] - 60:
         while x <= xsort[1]:
             gedung = [gedung for gedung in building if gedung.size[0] + x < xsort[1] - 20]
@@ -253,19 +261,6 @@ def makeArea(startPoint):
                     draw.line(((tempX + 10, batEs + 20), (tempX + 10, y - yey)), "white", 1)
                 drawArea((tempX + 20, batEs + 20), (x, y - yey), batAs + 20, list_atas)
 
-                # Check if the area is non-forest (white) and add trees
-                if is_non_forest_area(x, y - yey):
-                    tree = random.choice(environment[4:])  # Select tree image randomly
-                    max_x = min(x + 100 - tree.size[0], width - tree.size[0])
-                    min_x = max(x, 20)
-                    max_y = min(batEs + 10, y - yey + 20) - tree.size[1]  # Update max_y for tree placement
-                    min_y = max(batAs + 20, y - yey)  # Update min_y for tree placement
-                    # Check if the range is not empty for both x and y
-                    if max_x >= min_x and max_y >= min_y:
-                        tree_x = random.randint(min_x, max_x)  # Random x-coordinate within the area
-                        tree_y = random.randint(min_y, max_y)  # Random y-coordinate within the area
-                        canvas.paste(tree, (tree_x, tree_y), tree)
-
             tempX = x
             tempY = batAs
             x += random.randint(2, 4) * 100
@@ -277,7 +272,13 @@ def makeArea(startPoint):
         tempAtas = []
         x = startPoint[0]
 
-# Loop to place cars on roads
+    # Remove empty green areas
+    for x in range(width):
+        for y in range(height):
+            if canvas.getpixel((x, y)) == (34, 139, 34, 255):
+                canvas.putpixel((x, y), (255, 255, 255, 0))
+
+    # Loop to place cars on roads
     for y in range(startPoint[1] + 20, height, 300):
         for x in range(startPoint[0] + 20, width - 20, 200):
             lane_center = x + (road_width // 2)  # Calculate lane center
@@ -286,8 +287,20 @@ def makeArea(startPoint):
                 cars.append({"image": random.choice(car_images), "position": (lane_center, y),
                              "velocity": (random.choice([-1, 1]) * 5, 0)})
 
-# Tambahkan batu dan rumput secara acak
+    # Tambahkan batu dan rumput secara acak
     add_rocks_and_grass()
+
+
+def is_mountain_area(x, y):
+    mountain_color = (34, 139, 34, 255)  # Green color for mountain
+    try:
+        # Check the color of the pixel at (x, y) and determine if it matches the mountain color
+        pixel_color = canvas.getpixel((x, y))
+        return pixel_color == mountain_color
+    except IndexError:
+        print("Error: Index out of range for coordinates:", (x, y))
+        return False
+
 
 def is_non_forest_area(x, y):
     non_forest_color = (255, 255, 255, 255)  # White color for non-forest area
@@ -327,23 +340,15 @@ def update_car_positions():
 
 # Function to update the map
 def update_map():
-    global draw, canvas, batas
+    global draw, batas
     batas = [(0, 0)]
-    canvas = Image.new("RGBA", (width, height), (34, 139, 34, 255))
-    draw = ImageDraw.Draw(canvas)
+    draw.rectangle(((0, 0), (width, height)), "green")  # Remove this line
     makeArea((0, 0))
     update_viewport()
 
 # Function to update the viewport
 def update_viewport():
     global canvas, viewport_x, viewport_y, viewport_width, viewport_height
-
-    # Draw cars on the canvas
-    update_car_positions()
-    for car in cars:
-        x, y = car["position"]
-        car_image = car["image"]
-        canvas.paste(car_image, (x, y), car_image)
 
     # Crop and resize the portion of the canvas to display in the viewport
     cropped_map = canvas.crop((viewport_x, viewport_y, viewport_x + viewport_width, viewport_y + viewport_height))
@@ -357,22 +362,26 @@ def update_viewport():
 # Zoom in function
 def zoom_in():
     global zoom_factor, viewport_x, viewport_y, viewport_width, viewport_height
-    zoom_factor *= 1.1
-    viewport_width = int(INITIAL_WIDTH / zoom_factor)
-    viewport_height = int(INITIAL_HEIGHT / zoom_factor)
-    viewport_x = max(0, min(width - viewport_width, viewport_x + (INITIAL_WIDTH - viewport_width) // 2))
-    viewport_y = max(0, min(height - viewport_height, viewport_y + (INITIAL_HEIGHT - viewport_height) // 2))
-    update_viewport()
+    if zoom_factor * 1.1 <= 5:  # Batasi faktor zoom maksimum
+        zoom_factor *= 1.1
+        viewport_width = int(INITIAL_WIDTH / zoom_factor)
+        viewport_height = int(INITIAL_HEIGHT / zoom_factor)
+        # Sesuaikan viewport_x dan viewport_y agar tetap berada di tengah
+        viewport_x = max(0, min(width - viewport_width, viewport_x + (INITIAL_WIDTH - viewport_width) // 2))
+        viewport_y = max(0, min(height - viewport_height, viewport_y + (INITIAL_HEIGHT - viewport_height) // 2))
+        update_viewport()
 
 # Zoom out function
 def zoom_out():
     global zoom_factor, viewport_x, viewport_y, viewport_width, viewport_height
-    zoom_factor /= 1.1
-    viewport_width = int(INITIAL_WIDTH / zoom_factor)
-    viewport_height = int(INITIAL_HEIGHT / zoom_factor)
-    viewport_x = max(0, min(width - viewport_width, viewport_x - (viewport_width - INITIAL_WIDTH) // 2))
-    viewport_y = max(0, min(height - viewport_height, viewport_y - (viewport_height - INITIAL_HEIGHT) // 2))
-    update_viewport()
+    if zoom_factor / 1.1 >= 0.1:  # Batasi faktor zoom minimum
+        zoom_factor /= 1.1
+        viewport_width = int(INITIAL_WIDTH / zoom_factor)
+        viewport_height = int(INITIAL_HEIGHT / zoom_factor)
+        # Sesuaikan viewport_x dan viewport_y agar tetap berada di tengah
+        viewport_x = max(0, min(width - viewport_width, viewport_x - (viewport_width - INITIAL_WIDTH) // 2))
+        viewport_y = max(0, min(height - viewport_height, viewport_y - (viewport_height - INITIAL_HEIGHT) // 2))
+        update_viewport()
 
 # Tkinter setup
 root = tk.Tk()
